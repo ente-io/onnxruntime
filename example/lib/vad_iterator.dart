@@ -12,6 +12,7 @@ class VadIterator {
   final _speechPadMs = 0;
   late int _minSilenceSamples;
   late int _speechPadSamples;
+
   /// support 256 512 768 for 8k; 512 1024 1536 for 16k
   late int _windowSizeSamples;
 
@@ -24,9 +25,12 @@ class VadIterator {
   var _currentSample = 0;
 
   static const int _batch = 1;
+
   /// model inputs
-  var _hide = List.filled(2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
-  var _cell = List.filled(2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
+  var _hide = List.filled(
+      2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
+  var _cell = List.filled(
+      2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
 
   VadIterator(this._frameSize, this._sampleRate) {
     final srPerMs = _sampleRate ~/ 1000;
@@ -43,8 +47,10 @@ class VadIterator {
     _triggered = false;
     _tempEnd = 0;
     _currentSample = 0;
-    _hide = List.filled(2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
-    _cell = List.filled(2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
+    _hide = List.filled(
+        2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
+    _cell = List.filled(
+        2, List.filled(_batch, Float32List.fromList(List.filled(64, 0.0))));
   }
 
   release() {
@@ -67,27 +73,33 @@ class VadIterator {
   }
 
   Future<bool> predict(Float32List data) async {
-    final inputOrt =
-        OrtValueTensor.createTensorWithDataList(data, [_batch, _windowSizeSamples]);
+    final inputOrt = OrtValueTensor.createTensorWithDataList(
+        data, [_batch, _windowSizeSamples]);
     final srOrt = OrtValueTensor.createTensorWithData(_sampleRate);
     final hOrt = OrtValueTensor.createTensorWithDataList(_hide);
     final cOrt = OrtValueTensor.createTensorWithDataList(_cell);
     final runOptions = OrtRunOptions();
     final inputs = {'input': inputOrt, 'sr': srOrt, 'h': hOrt, 'c': cOrt};
     // final outputs = _session?.run(runOptions, inputs);
-    final outputs = await _session?.runAsync(runOptions, inputs);
+    final outputs = await _session?.run(runOptions, inputs);
     inputOrt.release();
     srOrt.release();
     hOrt.release();
     cOrt.release();
     runOptions.release();
+
     /// Output probability & update h,c recursively
     final output = (outputs?[0]?.value as List<List<double>>)[0][0];
-    _hide = (outputs?[1]?.value as List<List<List<double>>>).map((e) => e.map((e) => Float32List.fromList(e)).toList()).toList();
-    _cell = (outputs?[2]?.value as List<List<List<double>>>).map((e) => e.map((e) => Float32List.fromList(e)).toList()).toList();
+    _hide = (outputs?[1]?.value as List<List<List<double>>>)
+        .map((e) => e.map((e) => Float32List.fromList(e)).toList())
+        .toList();
+    _cell = (outputs?[2]?.value as List<List<List<double>>>)
+        .map((e) => e.map((e) => Float32List.fromList(e)).toList())
+        .toList();
     outputs?.forEach((element) {
       element?.release();
     });
+
     /// Push forward sample index
     _currentSample += _windowSizeSamples;
 
@@ -109,8 +121,10 @@ class VadIterator {
     /// 3) Start
     if (output >= _threshold && !_triggered) {
       _triggered = true;
+
       /// minus window_size_samples to get precise start time point.
-      final speechStart = _currentSample - _windowSizeSamples - _speechPadSamples;
+      final speechStart =
+          _currentSample - _windowSizeSamples - _speechPadSamples;
       print('vad start: ${speechStart / _sampleRate}s');
     }
 
@@ -119,13 +133,17 @@ class VadIterator {
       if (_tempEnd == 0) {
         _tempEnd = _currentSample;
       }
+
       /// a. silence < min_slience_samples, continue speaking
       if (_currentSample - _tempEnd < _minSilenceSamples) {
         print('vad speaking4: ${_currentSample / _sampleRate}s');
       }
+
       /// b. silence >= min_slience_samples, end speaking
       else {
-        final speechEnd = _tempEnd > 0 ? _tempEnd + _speechPadSamples : _currentSample + _speechPadSamples;
+        final speechEnd = _tempEnd > 0
+            ? _tempEnd + _speechPadSamples
+            : _currentSample + _speechPadSamples;
         _tempEnd = 0;
         _triggered = false;
         print('vad end: ${speechEnd / _sampleRate}s');
