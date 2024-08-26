@@ -48,3 +48,16 @@ android {
         minSdkVersion 21
     }
 }
+
+tasks.withType(JavaCompile) {
+  options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+}
+
+afterEvaluate {
+  android.libraryVariants.all { variant ->
+    variant.packageLibraryProvider.get().exclude('lib/arm64-v8a/libonnxruntime.so')
+    variant.packageLibraryProvider.get().exclude('lib/armeabi-v7a/libonnxruntime.so')
+    variant.packageLibraryProvider.get().exclude('lib/x86/libonnxruntime.so')
+    variant.packageLibraryProvider.get().exclude('lib/x86_64/libonnxruntime.so')
+  }
+}
